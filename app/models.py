@@ -44,15 +44,14 @@ class Schelling():
         """
         _distribute_houses will distribute houses on the list of locations
 
-        we typically have occupied houses and empty houses
+        We typically have occupied houses and empty houses. In principle,
+        we could distribute the houses using a probability distributions.
+        In this algorithm, we simply randomize the list then cut it into two halves.
 
         :param locations: list of locations such as [(0,0), (0,1)]
         :type locations: list
         """
 
-        # we shuffled the sites first
-        # so we could simply divide the list into to parts
-        locations
         random.shuffle(locations)
         empty_houses_count = int(empty_house_rate * len(locations))
 
@@ -61,29 +60,67 @@ class Schelling():
 
         return empty_houses, occupied_houses
 
-    def populate(self):
+    @staticmethod
+    def _distribute_races_to_house(houses, number_of_races, method = None):
         """
+        _distribute_agents places the agents in the houses.
+
+        divide the list of houses into sub lists for each races
+        """
+
+        if method is None:
+            method = "chunk"
+
+        if method == "chunk":
+            k, m = divmod(len(houses), number_of_races)
+            return (
+                houses[i * k + min(i, m):(i + 1) * k + min(i + 1, m)]
+                for i in range(number_of_races)
+                )
+        elif method == "interleave":
+            return (
+                houses[i::number_of_races]
+                for i in range(number_of_races)
+                )
+        else:
+            raise Exception(f"No method == {method} found")
+
+
+    def initialize(self):
+        """allocate occupied and empty houses to to grid
+        and populate agents of each race to the occupied houses
         """
         # generate all possible combinations of the horizontal and vertical coordinates
         self.all_houses = list(itertools.product(range(self.width),range(self.height)))
 
-        # allocate empty sites:
+        # allocate houses on the grid:
         self.empty_houses, self.occupied_houses = self._distribute_houses(
             self.all_houses, self.empty_house_rate
             )
-
-        houses_by_race = [
-            self.occupied_houses[i::self.races]
-            for i in range(self.races)
-            ]
+        houses_by_agent_race = list(self._distribute_races_to_house(
+            self.occupied_houses, self.races
+        ))
 
         for i in range(self.races):
             self.agents.update(
-                dict(zip(houses_by_race[i], [i+1]*len(houses_by_race[i])))
+                {
+                    ho:i+1 for ho in houses_by_agent_race[i]
+                }
                 )
 
     def is_unsatisfied(self, x, y):
-        race = self.agents[(x,y)]
+        """
+        is_unsatisfied calculate the satisfactory index of each agent based on
+         current neighbours.
+
+        :param x: horizental coordinate, starts with 0
+        :type x: int
+        :param y: vertical coordinate, starts with 0
+        :type y: int
+        :return: boolean value of wether the agent is not satisfied
+        :rtype: [type]
+        """
+        race = self.agents.get((x,y))
         count_similar = 0
         count_different = 0
 
@@ -134,6 +171,9 @@ class Schelling():
             return float(count_similar)/(count_similar+count_different) < self.neighbour_similarity
 
     def evolve(self):
+        """
+        evolve calculates the predefined number of steps
+        """
         for i in range(self.n_iterations):
             self.old_agents = copy.deepcopy(self.agents)
             n_changes = 0
@@ -158,6 +198,11 @@ class Schelling():
         self.empty_houses.remove(empty_house)
         self.empty_houses.append((x, y))
 
+    def jsonify(self):
+
+        return self.agents
+
+
     def plot(self, title, file_name):
         fig, ax = plt.subplots()
         #If you want to run the simulation with more than 7 colors, you should set agent_colors accordingly
@@ -175,7 +220,7 @@ class Schelling():
 
 if __name__ == "__main__":
     schelling_1 = Schelling(50, 50, 0.3, 0.8, 100, 2)
-    schelling_1.populate()
+    schelling_1.initialize()
 
     schelling_1.plot(
         'Schelling Model',
