@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import itertools
 import random
 import copy
@@ -6,7 +5,7 @@ import logging
 
 logging.basicConfig()
 logger = logging.getLogger('models')
-
+logger.setLevel(logging.DEBUG)
 
 
 class Schelling():
@@ -38,7 +37,7 @@ class Schelling():
         self.empty_houses = []
         # agents are gonna live in the houses
         self.agents = {}
-        self.data = []
+        self.data = {}
 
     @staticmethod
     def _distribute_houses(locations, empty_house_rate):
@@ -130,7 +129,7 @@ class Schelling():
 
         self.current_iteration = 0
         self.data = {
-            "0": self._agents_dict_to_2d_array(self.agents, self.width, self.height)
+            0: self._agents_dict_to_2d_array(self.agents, self.width, self.height)
         }
 
     def is_unsatisfied(self, x, y):
@@ -220,14 +219,6 @@ class Schelling():
             # check if we have reached equlibrium
             if n_changes == 0:
                 break
-
-    def move_to_empty(self, x, y):
-        race = self.agents[(x,y)]
-        empty_house = random.choice(self.empty_houses)
-        self.updated_agents[empty_house] = race
-        del self.updated_agents[(x, y)]
-        self.empty_houses.remove(empty_house)
-        self.empty_houses.append((x, y))
 
 
 if __name__ == "__main__":
