@@ -38,6 +38,7 @@ class Schelling():
         self.empty_houses = []
         # agents are gonna live in the houses
         self.agents = {}
+        self.data = []
 
     @staticmethod
     def _distribute_houses(locations, empty_house_rate):
@@ -85,6 +86,25 @@ class Schelling():
         else:
             raise Exception(f"No method == {method} found")
 
+    @staticmethod
+    def _agents_dict_to_2d_array(agents_dict, width, height):
+        """
+        _agents_dict_to_2d_array converts the agents dictionary to 2d list
+
+        :param agents_dict: agents dict with keys as tuple of coordinates
+        :type agents_dict: dict
+        :param width: width of the grid
+        :type width: int
+        :param height: height of the grid
+        :type height: int
+        :return: 2d list of the grid with each value being the agent race
+        :rtype: list
+        """
+        res = [[0] * width] * height
+        for idx, val in agents_dict.items():
+            res[idx[0]][idx[1]] = val
+
+        return res
 
     def initialize(self):
         """allocate occupied and empty houses to to grid
@@ -107,6 +127,11 @@ class Schelling():
                     ho:i+1 for ho in houses_by_agent_race[i]
                 }
                 )
+
+        self.current_iteration = 0
+        self.data = {
+            "0": self._agents_dict_to_2d_array(self.agents, self.width, self.height)
+        }
 
     def is_unsatisfied(self, x, y):
         """
@@ -174,7 +199,9 @@ class Schelling():
         """
         evolve calculates the predefined number of steps
         """
+
         for i in range(self.n_iterations):
+            self.current_iteration += 1
             self.old_agents = copy.deepcopy(self.agents)
             n_changes = 0
             for agent in self.old_agents:
@@ -186,7 +213,11 @@ class Schelling():
                     self.empty_houses.remove(empty_house)
                     self.empty_houses.append(agent)
                     n_changes += 1
-            print(n_changes)
+            logger.debug("changes: {}".format(n_changes))
+            self.data[self.current_iteration] = self._agents_dict_to_2d_array(
+                self.agents, self.width, self.height
+                )
+            # check if we have reached equlibrium
             if n_changes == 0:
                 break
 
@@ -198,39 +229,14 @@ class Schelling():
         self.empty_houses.remove(empty_house)
         self.empty_houses.append((x, y))
 
-    def jsonify(self):
-
-        return self.agents
-
-
-    def plot(self, title, file_name):
-        fig, ax = plt.subplots()
-        #If you want to run the simulation with more than 7 colors, you should set agent_colors accordingly
-        agent_colors = {1:'b', 2:'r', 3:'g', 4:'c', 5:'m', 6:'y', 7:'k'}
-        for agent in self.agents:
-            ax.scatter(agent[0]+0.5, agent[1]+0.5, color=agent_colors[self.agents[agent]])
-
-        ax.set_title(title, fontsize=10, fontweight='bold')
-        ax.set_xlim([0, self.width])
-        ax.set_ylim([0, self.height])
-        ax.set_xticks([])
-        ax.set_yticks([])
-        plt.savefig(file_name)
-
 
 if __name__ == "__main__":
     schelling_1 = Schelling(50, 50, 0.3, 0.8, 100, 2)
     schelling_1.initialize()
 
-    schelling_1.plot(
-        'Schelling Model',
-        'schelling_2_30_init.png'
-        )
+    print(schelling_1.data)
 
     schelling_1.evolve()
-    schelling_1.plot(
-        'Schelling Model',
-        'schelling_2_30_final.png'
-        )
+    print(schelling_1.data)
 
     print("END OF GAME")
