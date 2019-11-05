@@ -2,6 +2,9 @@ import itertools
 import random
 import copy
 import logging
+import numpy as np
+
+# import matplotlib.pyplot as plt
 
 logging.basicConfig()
 logger = logging.getLogger('models')
@@ -38,6 +41,7 @@ class Schelling():
         # agents are gonna live in the houses
         self.agents = {}
         self.data = {}
+        self.changes = []
 
     @staticmethod
     def _distribute_houses(locations, empty_house_rate):
@@ -83,7 +87,7 @@ class Schelling():
                 for i in range(number_of_races)
                 )
         else:
-            raise Exception(f"No method == {method} found")
+            raise Exception("No method {} found".format(method))
 
     @staticmethod
     def _agents_dict_to_2d_array(agents_dict, width, height):
@@ -100,8 +104,13 @@ class Schelling():
         :rtype: list
         """
         res = [[0] * width] * height
+        logger.debug(agents_dict)
+
         for idx, val in agents_dict.items():
+            print(idx[0], ' ', idx[1], ' ', val)
             res[idx[0]][idx[1]] = val
+        logger.debug("first line: {}".format(res[0]))
+        logger.debug("last line: {}".format(res[-1]))
 
         return res
 
@@ -132,7 +141,7 @@ class Schelling():
             0: self._agents_dict_to_2d_array(self.agents, self.width, self.height)
         }
 
-    def is_unsatisfied(self, x, y):
+    def _is_unsatisfied(self, x, y):
         """
         is_unsatisfied calculate the satisfactory index of each agent based on
          current neighbours.
@@ -204,7 +213,7 @@ class Schelling():
             self.old_agents = copy.deepcopy(self.agents)
             n_changes = 0
             for agent in self.old_agents:
-                if self.is_unsatisfied(agent[0], agent[1]):
+                if self._is_unsatisfied(agent[0], agent[1]):
                     agent_race = self.agents[agent]
                     empty_house = random.choice(self.empty_houses)
                     self.agents[empty_house] = agent_race
@@ -212,6 +221,7 @@ class Schelling():
                     self.empty_houses.remove(empty_house)
                     self.empty_houses.append(agent)
                     n_changes += 1
+            self.changes.append(n_changes)
             logger.debug("changes: {}".format(n_changes))
             self.data[self.current_iteration] = self._agents_dict_to_2d_array(
                 self.agents, self.width, self.height
@@ -220,14 +230,34 @@ class Schelling():
             if n_changes == 0:
                 break
 
+    def visualize(self, title='Title', file_name="temp.png"):
+        """
+        visualize visualize the grid
+        """
+
+        fig, ax = plt.subplots()
+        #If you want to run the simulation with more than 7 colors, you should set agent_colors accordingly
+        agent_colors = {1:'b', 2:'r', 3:'g', 4:'c', 5:'m', 6:'y', 7:'k'}
+        for agent in self.agents:
+            ax.scatter(agent[0]+0.5, agent[1]+0.5, color=agent_colors[self.agents[agent]])
+
+        ax.set_title(title, fontsize=10, fontweight='bold')
+        ax.set_xlim([0, self.width])
+        ax.set_ylim([0, self.height])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        plt.savefig(file_name)
+
 
 if __name__ == "__main__":
-    schelling_1 = Schelling(50, 50, 0.3, 0.8, 100, 2)
+    schelling_1 = Schelling(30, 30, 0.3, 0.8, 20, 2)
     schelling_1.initialize()
 
     print(schelling_1.data)
 
     schelling_1.evolve()
     print(schelling_1.data)
+
+    schelling_1.visualize()
 
     print("END OF GAME")

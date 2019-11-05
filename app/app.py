@@ -12,7 +12,7 @@ logging.basicConfig()
 logger = logging.getLogger('app')
 logger.setLevel(logging.DEBUG)
 
-schelling_model = Schelling(50, 50, 0.3, 0.8, 20, 2)
+schelling_model = Schelling(50, 50, 0.3, 0.8, 100, 2)
 schelling_model.initialize()
 logger.debug(
     "number of iteractions: {}".format(schelling_model.n_iterations)
