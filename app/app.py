@@ -1,12 +1,13 @@
 import logging
 
 import dash
-import dash_core_components as dcc
 import dash_bootstrap_components as dbc
+import dash_core_components as dcc
 import dash_html_components as html
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output
 
+from components import navbar as _navbar
 from models import Schelling
 
 logging.basicConfig()
@@ -105,9 +106,12 @@ body = dbc.Container(
 hidden_elem = html.P(id="hidden-div", style={"display":"none"})
 hidden_elem_calculate = html.P(id="hidden-div-calculate", style={"display":"none"})
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-app.layout = html.Div([body, hidden_elem, hidden_elem_calculate])
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+server = app.server
+app.config.suppress_callback_exceptions = True
+
+app.layout = html.Div([_navbar, body, hidden_elem, hidden_elem_calculate])
 
 @app.callback(
     Output('graph-with-slider', 'figure'),
