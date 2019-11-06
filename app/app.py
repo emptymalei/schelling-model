@@ -14,8 +14,22 @@ logging.basicConfig()
 logger = logging.getLogger('app')
 logger.setLevel(logging.DEBUG)
 
+# This ugly global varible trick
+# is to overcome some difficulties
+# in dash
 PRE_DEFINED_MAX_ITERATIONS = 30
-SCHELLING_MODEL = Schelling(10, 10, 0.3, 0.8, PRE_DEFINED_MAX_ITERATIONS, 2)
+PRE_DEFINED_WIDTH = 20
+PRE_DEFINED_HEIGHT = 20
+PRE_DEFINED_EMPTY_HOUSE_RATE = 0.2
+PRE_DEFINED_THRESHOLD = 0.8
+PRE_DEFINED_ETHICAL = 2
+
+# Inithialize the model
+SCHELLING_MODEL = Schelling(
+    PRE_DEFINED_WIDTH, PRE_DEFINED_HEIGHT, PRE_DEFINED_EMPTY_HOUSE_RATE,
+    PRE_DEFINED_THRESHOLD, PRE_DEFINED_MAX_ITERATIONS, PRE_DEFINED_ETHICAL
+    )
+
 SCHELLING_MODEL.initialize()
 CURRENT_ITERATION = SCHELLING_MODEL.current_iteration
 MAX_ITERATIONS = SCHELLING_MODEL.n_iterations
@@ -42,21 +56,21 @@ param_controls = dbc.Form(
         dbc.FormGroup(
             [
                 dbc.Label("Grid Width", className="mr-2"),
-                dbc.Input(id="model-grid-width", type="number", placeholder="20"),
+                dbc.Input(id="model-grid-width", type="number", placeholder=f"{PRE_DEFINED_WIDTH}"),
             ],
             className="mr-4",
         ),
         dbc.FormGroup(
             [
                 dbc.Label("Grid Height", className="mr-2"),
-                dbc.Input(id="model-grid-height", type="number", placeholder="20"),
+                dbc.Input(id="model-grid-height", type="number", placeholder=f"{PRE_DEFINED_HEIGHT}"),
             ],
             className="mr-4",
         ),
         dbc.FormGroup(
             [
-                dbc.Label("Max Iteractions", className="mr-2"),
-                dbc.Input(id="model-grid-max-iter", type="number", placeholder="20"),
+                dbc.Label("Similarity Threshold", className="mr-2"),
+                dbc.Input(id="model-sim-threshold", type="number", placeholder=f"{PRE_DEFINED_THRESHOLD}"),
             ],
             className="mr-4",
         )
@@ -103,7 +117,7 @@ body = dbc.Container(
                     [
                         html.H2("Parameters"),
                         param_controls,
-                        dbc.Button("Calculate", id="model-calculate", color="primary"),
+                        dbc.Button("Evolve One Step", id="model-calculate", color="primary"),
                     ]
                 ),
             ], className="row", style={'textAlign': "center"}
@@ -160,13 +174,17 @@ def update_figure(selected_step):
 @app.callback(
     Output('hidden-div', 'children'),
     [Input('model-grid-width', 'value'),
-    Input('model-grid-height', 'value')])
-def update_model(width, height):
+    Input('model-grid-height', 'value'),
+    Input('model-sim-threshold', 'value')])
+def update_model(width, height, sim_th):
     logger.debug(f"width: {width}, height: {height}")
     if width is None:
-        width = 20
+        width = PRE_DEFINED_WIDTH
     if height is None:
-        height = 20
+        height = PRE_DEFINED_HEIGHT
+    if sim_th is None:
+        sim_th = PRE_DEFINED_THRESHOLD
+
     logger.debug(f"width: {width}, height: {height}; adjusted")
 
     global SCHELLING_MODEL
@@ -174,10 +192,10 @@ def update_model(width, height):
     global CURRENT_ITERATION
 
     SCHELLING_MODEL = Schelling(
-        width, height, 0.3, 0.8, PRE_DEFINED_MAX_ITERATIONS, 2
+        width, height, PRE_DEFINED_EMPTY_HOUSE_RATE,
+        sim_th, PRE_DEFINED_MAX_ITERATIONS, PRE_DEFINED_ETHICAL
         )
     SCHELLING_MODEL.initialize()
-    # SCHELLING_MODEL.evolve()
     CURRENT_ITERATION = SCHELLING_MODEL.current_iteration
     CURRENT_DATA = SCHELLING_MODEL.data.get(CURRENT_ITERATION)
 
