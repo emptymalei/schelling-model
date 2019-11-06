@@ -14,23 +14,28 @@ logging.basicConfig()
 logger = logging.getLogger('app')
 logger.setLevel(logging.DEBUG)
 
-schelling_model = Schelling(10, 10, 0.3, 0.8, 10, 2)
-schelling_model.initialize()
+PRE_DEFINED_MAX_ITERATIONS = 30
+SCHELLING_MODEL = Schelling(10, 10, 0.3, 0.8, PRE_DEFINED_MAX_ITERATIONS, 2)
+SCHELLING_MODEL.initialize()
+CURRENT_ITERATION = SCHELLING_MODEL.current_iteration
+MAX_ITERATIONS = SCHELLING_MODEL.n_iterations
+CURRENT_DATA = SCHELLING_MODEL.data.get(CURRENT_ITERATION)
+
 logger.debug(
-    "number of iteractions: {}".format(schelling_model.n_iterations)
+    "number of iteractions: {}".format(SCHELLING_MODEL.n_iterations)
 )
 
 logger.debug(
-    "current step of iteractions: {}".format(schelling_model.current_iteration)
+    "current step of iteractions: {}".format(SCHELLING_MODEL.current_iteration)
 )
-logger.debug("final agents: {}".format(schelling_model.agents))
+logger.debug("final agents: {}".format(SCHELLING_MODEL.agents))
 logger.debug("final grid: {}".format(
-    schelling_model.data.get(schelling_model.current_iteration)
+    SCHELLING_MODEL.data.get(SCHELLING_MODEL.current_iteration)
 ))
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
-
+SLIDER_MAX = CURRENT_ITERATION+1
 
 param_controls = dbc.Form(
     [
@@ -73,10 +78,10 @@ body = dbc.Container(
                 [dcc.Slider(
                     id='step-slider',
                     min=0,
-                    max=schelling_model.current_iteration,
-                    value=schelling_model.current_iteration,
+                    max=SLIDER_MAX,
+                    value=SLIDER_MAX,
                     marks={i: '{}'.format(i) if i == 1 else str(i)
-                        for i in range(schelling_model.current_iteration+1)},
+                        for i in range(SLIDER_MAX+1)},
                     step=None
                 )]
             )
@@ -86,7 +91,11 @@ body = dbc.Container(
             [
                 dbc.Col(
                     [
-                        dcc.Graph(id='graph-with-slider'),
+                        dcc.Graph(
+                            id='graph-with-slider',
+                            config={
+                                'displayModeBar': False
+                            }),
                     ],
                     md=8,
                 ),
@@ -113,29 +122,30 @@ app.config.suppress_callback_exceptions = True
 
 app.layout = html.Div([_navbar, body, hidden_elem, hidden_elem_calculate])
 
+
 @app.callback(
     Output('graph-with-slider', 'figure'),
-    [Input('step-slider', 'value'),
-    Input('model-grid-width', 'value'),
-    Input('model-grid-height', 'value'),
-    Input('model-grid-max-iter', 'value')])
-def update_figure(selected_step, width, height, max_iterations):
+    [Input('step-slider', 'value')])
+def update_figure(selected_step):
     logger.debug(selected_step)
-    logger.debug(f"width: {width}, height: {height}")
-    if width is None:
-        width = 20
-    if height is None:
-        height = 20
-    if max_iterations is None:
-        max_iterations = 20
-    logger.debug(f"width: {width}, height: {height}; adjusted")
-    schelling_model = Schelling(width, height, 0.3, 0.8, max_iterations, 2)
-    schelling_model.initialize()
-    schelling_model.evolve()
-    current_step_data = schelling_model.data.get(selected_step)
+
+    global SCHELLING_MODEL
+    global CURRENT_DATA
+    global CURRENT_ITERATION
+
+    CURRENT_DATA = SCHELLING_MODEL.data.get(selected_step)
     trace = go.Heatmap(
-        z=current_step_data, colorscale='Electric',
-        colorbar={"title": "ethical group"}, showscale=True
+        z=CURRENT_DATA,
+        colorscale=[
+            [0, "rgb(0,0,0)"],
+            [0.5, "rgb(49,54,149)"],
+            [1, "rgb(244,109,67)"]
+            ],
+        colorbar={
+            "title": "ethical group",
+            "tickvals": [0,1,2],
+            "ticktext": [0,1,2]
+            }, showscale=True
     )
     return {
         "data": [trace],
@@ -158,19 +168,89 @@ def update_model(width, height):
     if height is None:
         height = 20
     logger.debug(f"width: {width}, height: {height}; adjusted")
-    schelling_model = Schelling(width, height, 0.3, 0.8, 10, 2)
-    schelling_model.initialize()
+
+    global SCHELLING_MODEL
+    global CURRENT_DATA
+    global CURRENT_ITERATION
+
+    SCHELLING_MODEL = Schelling(
+        width, height, 0.3, 0.8, PRE_DEFINED_MAX_ITERATIONS, 2
+        )
+    SCHELLING_MODEL.initialize()
+    # SCHELLING_MODEL.evolve()
+    CURRENT_ITERATION = SCHELLING_MODEL.current_iteration
+    CURRENT_DATA = SCHELLING_MODEL.data.get(CURRENT_ITERATION)
+
     return "hidden"
 
+@app.callback(
+    Output('hidden-div-calculate', 'children'),
+    [Input('model-calculate', 'n_clicks')])
+def update_model(n):
+    logger.debug(f"{n} clicks")
+    if n is None:
+        max_iter = 0
+
+    global SCHELLING_MODEL
+    global CURRENT_DATA
+    global CURRENT_ITERATION
+
+    SCHELLING_MODEL.evove_one()
+    logger.debug("evolved one step")
+    CURRENT_ITERATION = SCHELLING_MODEL.current_iteration
+    logger.debug("current iteraction: {}".format(CURRENT_ITERATION))
+    CURRENT_DATA = SCHELLING_MODEL.data.get(CURRENT_ITERATION)
+    logger.debug("current data: {}".format(CURRENT_DATA))
+    return "hidden"
 
 @app.callback(
     Output('step-slider', 'value'),
-    [Input('model-grid-max-iter', 'value')])
-def calculate_model(max_iterations):
-    if max_iterations is None:
-        max_iterations = 10
-    return max_iterations
+    [Input('model-calculate', 'n_clicks')])
+def update_step_slider_value(n):
+    if n is None:
+        n = 0
 
+    global SCHELLING_MODEL
+    global CURRENT_DATA
+    global CURRENT_ITERATION
+
+    logger.debug(
+        "update slider value 0: current_iteraction: {}".format(CURRENT_ITERATION)
+        )
+    CURRENT_ITERATION = SCHELLING_MODEL.current_iteration
+    logger.debug(
+        "update slider value 1: current_iteraction: {}".format(CURRENT_ITERATION)
+        )
+    return CURRENT_ITERATION
+
+@app.callback(
+    Output('step-slider', 'max'),
+    [Input('model-calculate', 'n_clicks')])
+def update_step_slider_max(n):
+    if n is None:
+        n = 0
+
+    global SCHELLING_MODEL
+    global CURRENT_DATA
+    global CURRENT_ITERATION
+
+    return CURRENT_ITERATION
+
+@app.callback(
+    Output('step-slider', 'marks'),
+    [Input('model-calculate', 'n_clicks')])
+def update_step_slider_marks(n):
+    if n is None:
+        n = 0
+
+    global SCHELLING_MODEL
+    global CURRENT_DATA
+    global CURRENT_ITERATION
+
+    return {
+        i: '{}'.format(i) if i == 1 else str(i)
+                        for i in range(CURRENT_ITERATION+1)
+                        }
 
 
 if __name__ == '__main__':

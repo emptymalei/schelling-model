@@ -206,50 +206,37 @@ class Schelling():
         else:
             return float(count_similar)/(count_similar+count_different) < self.neighbour_similarity
 
+    def evove_one(self):
+
+        self.current_iteration += 1
+        self.prev_agents = copy.deepcopy(self.agents)
+        n_changes = 0
+        for agent in self.prev_agents:
+            if self._is_unsatisfied(agent[0], agent[1]):
+                agent_race = self.agents[agent]
+                empty_house = random.choice(self.empty_houses)
+                self.agents[empty_house] = agent_race
+                del self.agents[agent]
+                self.empty_houses.remove(empty_house)
+                self.empty_houses.append(agent)
+                n_changes += 1
+        self.changes.append(n_changes)
+        logger.debug("changes: {}".format(n_changes))
+        self.data[self.current_iteration] = self._agents_dict_to_2d_array(
+            self.agents, self.width, self.height
+            )
+
     def evolve(self):
         """
         evolve calculates the predefined number of steps
         """
 
         for i in range(self.n_iterations):
-            self.current_iteration += 1
-            self.old_agents = copy.deepcopy(self.agents)
-            n_changes = 0
-            for agent in self.old_agents:
-                if self._is_unsatisfied(agent[0], agent[1]):
-                    agent_race = self.agents[agent]
-                    empty_house = random.choice(self.empty_houses)
-                    self.agents[empty_house] = agent_race
-                    del self.agents[agent]
-                    self.empty_houses.remove(empty_house)
-                    self.empty_houses.append(agent)
-                    n_changes += 1
-            self.changes.append(n_changes)
-            logger.debug("changes: {}".format(n_changes))
-            self.data[self.current_iteration] = self._agents_dict_to_2d_array(
-                self.agents, self.width, self.height
-                )
+            self.evove_one()
             # check if we have reached equlibrium
-            if n_changes == 0:
+            # not the best way but kind of works
+            if self.changes[-1] == 0:
                 break
-
-    def visualize(self, title='Title', file_name="temp.png"):
-        """
-        visualize visualize the grid
-        """
-
-        fig, ax = plt.subplots()
-        #If you want to run the simulation with more than 7 colors, you should set agent_colors accordingly
-        agent_colors = {1:'b', 2:'r', 3:'g', 4:'c', 5:'m', 6:'y', 7:'k'}
-        for agent in self.agents:
-            ax.scatter(agent[0]+0.5, agent[1]+0.5, color=agent_colors[self.agents[agent]])
-
-        ax.set_title(title, fontsize=10, fontweight='bold')
-        ax.set_xlim([0, self.width])
-        ax.set_ylim([0, self.height])
-        ax.set_xticks([])
-        ax.set_yticks([])
-        plt.savefig(file_name)
 
 
 if __name__ == "__main__":
