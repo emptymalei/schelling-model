@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import dash
@@ -60,6 +61,8 @@ param_controls = dbc.Form(
             ],
             className="mr-4",
         ),
+        html.Br(),
+        html.Br(),
         dbc.FormGroup(
             [
                 dbc.Label("Grid Height", className="mr-2"),
@@ -67,13 +70,20 @@ param_controls = dbc.Form(
             ],
             className="mr-4",
         ),
+        html.Br(),
+        html.Br(),
         dbc.FormGroup(
             [
                 dbc.Label("Similarity Threshold", className="mr-2"),
-                dbc.Input(id="model-sim-threshold", type="number", placeholder=f"{PRE_DEFINED_THRESHOLD}"),
+                dbc.Input(
+                    id="model-sim-threshold", type="number",
+                    min="0", max="1", step="0.1",
+                    placeholder=f"{PRE_DEFINED_THRESHOLD}"
+                    ),
             ],
             className="mr-4",
-        )
+        ),
+        html.Br()
     ],
     inline=True
 )
@@ -202,6 +212,17 @@ def update_model(width, height, sim_th):
     return "hidden"
 
 @app.callback(
+    Output('model-calculate', 'children'),
+    [Input('model-calculate', 'n_clicks')])
+def update_button(n):
+    if n is None:
+        n = 0
+    if n == 0:
+        return "Initialize"
+    else:
+        return "Next Iteraction"
+
+@app.callback(
     Output('hidden-div-calculate', 'children'),
     [Input('model-calculate', 'n_clicks')])
 def update_model(n):
@@ -213,7 +234,10 @@ def update_model(n):
     global CURRENT_DATA
     global CURRENT_ITERATION
 
-    SCHELLING_MODEL.evove_one()
+    SCHELLING_MODEL_COPY = copy.deepcopy(SCHELLING_MODEL)
+    SCHELLING_MODEL_COPY.evove_one()
+    SCHELLING_MODEL = copy.deepcopy(SCHELLING_MODEL_COPY)
+
     logger.debug("evolved one step")
     CURRENT_ITERATION = SCHELLING_MODEL.current_iteration
     logger.debug("current iteraction: {}".format(CURRENT_ITERATION))
