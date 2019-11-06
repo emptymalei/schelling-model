@@ -2,13 +2,12 @@ import itertools
 import random
 import copy
 import logging
-import numpy as np
 
 # import matplotlib.pyplot as plt
 
 logging.basicConfig()
 logger = logging.getLogger('models')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARNING)
 
 
 class Schelling():
@@ -106,9 +105,13 @@ class Schelling():
         res = [[0] * width] * height
         logger.debug(agents_dict)
 
-        for idx, val in agents_dict.items():
-            print(idx[0], ' ', idx[1], ' ', val)
-            res[idx[0]][idx[1]] = val
+        res = [
+            [
+                agents_dict.get((idx, idx_2), 0) for idx_2, val_2 in enumerate(val)
+            ]
+            for idx, val in enumerate(res)
+        ]
+
         logger.debug("first line: {}".format(res[0]))
         logger.debug("last line: {}".format(res[-1]))
 
@@ -258,6 +261,6 @@ if __name__ == "__main__":
     schelling_1.evolve()
     print(schelling_1.data)
 
-    schelling_1.visualize()
+    # schelling_1.visualize()
 
     print("END OF GAME")
