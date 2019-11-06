@@ -9,6 +9,7 @@ import plotly.graph_objs as go
 from dash.dependencies import Input, Output
 
 from components import navbar as _navbar
+from components import alert as _alert
 from models import Schelling
 
 logging.basicConfig()
@@ -22,7 +23,7 @@ PRE_DEFINED_MAX_ITERATIONS = 30
 PRE_DEFINED_WIDTH = 20
 PRE_DEFINED_HEIGHT = 20
 PRE_DEFINED_EMPTY_HOUSE_RATE = 0.2
-PRE_DEFINED_THRESHOLD = 0.8
+PRE_DEFINED_THRESHOLD = 0.6
 PRE_DEFINED_ETHICAL = 2
 
 # Inithialize the model
@@ -57,16 +58,18 @@ param_controls = dbc.Form(
         dbc.FormGroup(
             [
                 dbc.Label("Grid Width", className="mr-2"),
-                dbc.Input(id="model-grid-width", type="number", placeholder=f"{PRE_DEFINED_WIDTH}"),
-            ],
-            className="mr-4",
-        ),
-        html.Br(),
-        html.Br(),
-        dbc.FormGroup(
-            [
+                dbc.Input(
+                    id="model-grid-width", type="number",
+                    min="2", max="100", step="1",
+                    placeholder=f"{PRE_DEFINED_WIDTH}",
+                    className="mr-1"
+                    ),
                 dbc.Label("Grid Height", className="mr-2"),
-                dbc.Input(id="model-grid-height", type="number", placeholder=f"{PRE_DEFINED_HEIGHT}"),
+                dbc.Input(
+                    id="model-grid-height", type="number",
+                    min="2", max="100", step="1",
+                    placeholder=f"{PRE_DEFINED_HEIGHT}"
+                    ),
             ],
             className="mr-4",
         ),
@@ -83,6 +86,7 @@ param_controls = dbc.Form(
             ],
             className="mr-4",
         ),
+        html.Br(),
         html.Br()
     ],
     inline=True
@@ -94,23 +98,14 @@ body = dbc.Container(
     [
         dbc.Row([
         dbc.Col(
-            html.H1("Schelling's Model", style={'textAlign': "center"}),
+            html.H1("Schelling's Segregation Model", style={'textAlign': "center"}),
             className="col", style={'textAlign': "center"})]
             ),
         dbc.Row([
             dbc.Col(
-                [dcc.Slider(
-                    id='step-slider',
-                    min=0,
-                    max=SLIDER_MAX,
-                    value=SLIDER_MAX,
-                    marks={i: '{}'.format(i) if i == 1 else str(i)
-                        for i in range(SLIDER_MAX+1)},
-                    step=None
-                )]
+                _alert
             )
-        ],  style={'textAlign': "center", "marginBottom": "2em", "marginTop": "2em"}
-    ),
+        ]),
         dbc.Row(
             [
                 dbc.Col(
@@ -125,13 +120,33 @@ body = dbc.Container(
                 ),
                 dbc.Col(
                     [
-                        html.H2("Parameters"),
+                        dcc.Graph(
+                            id="graph-changes",
+                            config={
+                                'displayModeBar': False
+                            }
+                        ),
+                        html.P("Parameters"),
                         param_controls,
                         dbc.Button("Evolve One Step", id="model-calculate", color="primary"),
                     ]
                 ),
             ], className="row", style={'textAlign': "center"}
-        )
+        ),
+        dbc.Row([
+            dbc.Col(
+                [dcc.Slider(
+                    id='step-slider',
+                    min=0,
+                    max=SLIDER_MAX,
+                    value=SLIDER_MAX,
+                    marks={i: '{}'.format(i) if i == 1 else str(i)
+                        for i in range(SLIDER_MAX+1)},
+                    step=None
+                )]
+            )
+        ],  style={'textAlign': "center", "marginBottom": "2em", "marginTop": "2em"}
+        ),
     ],
     className="mt-4",
 )
@@ -145,6 +160,7 @@ server = app.server
 app.config.suppress_callback_exceptions = True
 
 app.layout = html.Div([_navbar, body, hidden_elem, hidden_elem_calculate])
+app.title = "Schelling's Segregation Model"
 
 
 @app.callback(
@@ -169,12 +185,12 @@ def update_figure(selected_step):
             "title": "ethical group",
             "tickvals": [0,1,2],
             "ticktext": [0,1,2]
-            }, showscale=True
+            }, showscale=False
     )
     return {
         "data": [trace],
         "layout": go.Layout(
-            width=600, height=600,
+            width=650, height=650,
             title="Schelling's Model (Current Step: {})".format(selected_step),
             xaxis={"title": "x"},
             yaxis={"title": "y"}
@@ -294,6 +310,35 @@ def update_step_slider_marks(n):
                         for i in range(CURRENT_ITERATION+1)
                         }
 
+@app.callback(
+    Output('graph-changes', 'figure'),
+    [Input('model-calculate', 'n_clicks')])
+def update_graph_changes(n):
+    if n is None:
+        n = 0
+
+    global SCHELLING_MODEL
+    global CURRENT_DATA
+    global CURRENT_ITERATION
+
+    return {
+        "data": [
+            go.Scatter(
+                x=[idx for idx, _ in enumerate(SCHELLING_MODEL.changes)],
+                y=SCHELLING_MODEL.changes,
+                mode='lines',
+                marker={'size': 10, "opacity": 0.6, "line": {'width': 0.5}},
+            )
+        ],
+        "layout": go.Layout(
+            height=300,
+            title="Number of Changes at Each Iteraction",
+            colorway=['#fdae61', '#abd9e9', '#2c7bb6'],
+            yaxis={"title": "Number of Changes"},
+            xaxis={"title": "Iteractions"})
+        }
+
+
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
