@@ -1,12 +1,13 @@
 import copy
 import logging
+import json
 
 import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
 import plotly.graph_objs as go
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 
 from components import navbar as _navbar
 from components import alert as _alert
@@ -27,10 +28,16 @@ PRE_DEFINED_THRESHOLD = 0.6
 PRE_DEFINED_ETHICAL = 2
 
 # Inithialize the model
-SCHELLING_MODEL = Schelling(
-    PRE_DEFINED_WIDTH, PRE_DEFINED_HEIGHT, PRE_DEFINED_EMPTY_HOUSE_RATE,
-    PRE_DEFINED_THRESHOLD, PRE_DEFINED_MAX_ITERATIONS, PRE_DEFINED_ETHICAL
-    )
+model_param = {
+    "width": PRE_DEFINED_WIDTH,
+    "height": PRE_DEFINED_HEIGHT,
+    "empty_house_rate": PRE_DEFINED_EMPTY_HOUSE_RATE,
+    "neighbour_similarity": PRE_DEFINED_THRESHOLD,
+    "n_iterations": PRE_DEFINED_MAX_ITERATIONS,
+    "races": PRE_DEFINED_ETHICAL
+    }
+
+SCHELLING_MODEL = Schelling(model_param)
 
 SCHELLING_MODEL.initialize()
 CURRENT_ITERATION = SCHELLING_MODEL.current_iteration
@@ -154,28 +161,36 @@ body = dbc.Container(
 hidden_elem = html.P(id="hidden-div", style={"display":"none"})
 hidden_elem_calculate = html.P(id="hidden-div-calculate", style={"display":"none"})
 
+model_state_div = html.Div(
+    json.dumps(SCHELLING_MODEL.model_state()),
+    id='intermediate-model-state', style={'display': 'none'})
+
+copy_model_state_div = html.Div(
+    json.dumps(SCHELLING_MODEL.model_state()),
+    id='intermediate-model-state-copy', style={'display': 'none'})
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server
 app.config.suppress_callback_exceptions = True
 
-app.layout = html.Div([_navbar, body, hidden_elem, hidden_elem_calculate])
+app.layout = html.Div([_navbar, body, hidden_elem, hidden_elem_calculate, model_state_div, copy_model_state_div])
 app.title = "Schelling's Segregation Model"
-
 
 @app.callback(
     Output('graph-with-slider', 'figure'),
-    [Input('step-slider', 'value')])
-def update_figure(selected_step):
+    [Input('step-slider', 'value')],
+    [State('intermediate-model-state', 'children')])
+def update_figure(selected_step, model):
     logger.debug(selected_step)
 
-    global SCHELLING_MODEL
-    global CURRENT_DATA
-    global CURRENT_ITERATION
-
-    CURRENT_DATA = SCHELLING_MODEL.data.get(selected_step)
+    model = json.loads(model)
+    # schelling_model = Schelling(model)
+    logger.debug("model: {}".format(model))
+    logger.debug('selected step: {}'.format(selected_step))
+    current_data = model.get("data").get(f'{selected_step}')
+    logger.debug("current model: {}; {}".format(model.get("data"), current_data))
     trace = go.Heatmap(
-        z=CURRENT_DATA,
+        z=current_data,
         colorscale=[
             [0, "rgb(0,0,0)"],
             [0.5, "rgb(49,54,149)"],
@@ -198,11 +213,23 @@ def update_figure(selected_step):
     }
 
 @app.callback(
-    Output('hidden-div', 'children'),
+    Output('intermediate-model-state-copy', 'children'),
+    [
+        Input('intermediate-model-state', 'children')
+    ]
+)
+def copy_model_state(model):
+    return model
+
+
+@app.callback(
+    Output('intermediate-model-state', 'children'),
     [Input('model-grid-width', 'value'),
     Input('model-grid-height', 'value'),
-    Input('model-sim-threshold', 'value')])
-def update_model(width, height, sim_th):
+    Input('model-sim-threshold', 'value'),
+    Input('model-calculate', 'n_clicks')],
+    [State('intermediate-model-state-copy', 'children')])
+def update_model(width, height, sim_th, n_clicks, model):
     logger.debug(f"width: {width}, height: {height}")
     if width is None:
         width = PRE_DEFINED_WIDTH
@@ -213,19 +240,40 @@ def update_model(width, height, sim_th):
 
     logger.debug(f"width: {width}, height: {height}; adjusted")
 
-    global SCHELLING_MODEL
-    global CURRENT_DATA
-    global CURRENT_ITERATION
+    existing_param = json.loads(model)
 
-    SCHELLING_MODEL = Schelling(
-        width, height, PRE_DEFINED_EMPTY_HOUSE_RATE,
-        sim_th, PRE_DEFINED_MAX_ITERATIONS, PRE_DEFINED_ETHICAL
-        )
-    SCHELLING_MODEL.initialize()
-    CURRENT_ITERATION = SCHELLING_MODEL.current_iteration
-    CURRENT_DATA = SCHELLING_MODEL.data.get(CURRENT_ITERATION)
+    param = {
+        "width": width,
+        "height": height,
+        "empty_house_rate": PRE_DEFINED_EMPTY_HOUSE_RATE,
+        "neighbour_similarity": sim_th,
+        "n_iterations": PRE_DEFINED_MAX_ITERATIONS,
+        "races": PRE_DEFINED_ETHICAL
+    }
 
-    return "hidden"
+    changed = False
+    for p in ['width', 'height', 'neighbour_similarity']:
+        if existing_param.get(p) != param.get(p):
+            changed = True
+
+    if changed:
+        schelling_model = Schelling(param)
+        schelling_model.initialize()
+        current_iteration = schelling_model.current_iteration
+        current_data = schelling_model.data.get(current_iteration)
+        current_state = schelling_model.model_state()
+
+        return json.dumps(current_state)
+    else:
+        logger.debug('model is: {}'.format(existing_param))
+        schelling_model = Schelling(existing_param)
+        logger.debug('reloaded model agents: {}'.format(schelling_model.agents))
+        schelling_model.evove_one()
+        current_iteration = schelling_model.current_iteration
+        current_data = schelling_model.data.get(current_iteration)
+        current_state = schelling_model.model_state()
+
+        return json.dumps(current_state)
 
 @app.callback(
     Output('model-calculate', 'children'),
@@ -238,94 +286,94 @@ def update_button(n):
     else:
         return "Next Iteraction"
 
-@app.callback(
-    Output('hidden-div-calculate', 'children'),
-    [Input('model-calculate', 'n_clicks')])
-def update_model(n):
-    logger.debug(f"{n} clicks")
-    if n is None:
-        max_iter = 0
+# @app.callback(
+#     Output('hidden-div-calculate', 'children'),
+#     [Input('model-calculate', 'n_clicks')])
+# def update_model(n):
+#     logger.debug(f"{n} clicks")
+#     if n is None:
+#         max_iter = 0
 
-    global SCHELLING_MODEL
-    global CURRENT_DATA
-    global CURRENT_ITERATION
+#     global SCHELLING_MODEL
+#     global CURRENT_DATA
+#     global CURRENT_ITERATION
 
-    SCHELLING_MODEL_COPY = copy.deepcopy(SCHELLING_MODEL)
-    SCHELLING_MODEL_COPY.evove_one()
-    SCHELLING_MODEL = copy.deepcopy(SCHELLING_MODEL_COPY)
+#     SCHELLING_MODEL_COPY = copy.deepcopy(SCHELLING_MODEL)
+#     SCHELLING_MODEL_COPY.evove_one()
+#     SCHELLING_MODEL = copy.deepcopy(SCHELLING_MODEL_COPY)
 
-    logger.debug("evolved one step")
-    CURRENT_ITERATION = SCHELLING_MODEL.current_iteration
-    logger.debug("current iteraction: {}".format(CURRENT_ITERATION))
-    CURRENT_DATA = SCHELLING_MODEL.data.get(CURRENT_ITERATION)
-    logger.debug("current data: {}".format(CURRENT_DATA))
-    return "hidden"
+#     logger.debug("evolved one step")
+#     CURRENT_ITERATION = SCHELLING_MODEL.current_iteration
+#     logger.debug("current iteraction: {}".format(CURRENT_ITERATION))
+#     CURRENT_DATA = SCHELLING_MODEL.data.get(CURRENT_ITERATION)
+#     logger.debug("current data: {}".format(CURRENT_DATA))
+#     return "hidden"
 
 @app.callback(
     Output('step-slider', 'value'),
-    [Input('model-calculate', 'n_clicks')])
-def update_step_slider_value(n):
+    [
+        Input('model-calculate', 'n_clicks'),
+        Input('intermediate-model-state', 'children')
+    ])
+def update_step_slider_value(n, model):
     if n is None:
         n = 0
 
-    global SCHELLING_MODEL
-    global CURRENT_DATA
-    global CURRENT_ITERATION
+    model = json.loads(model)
+    current_iteration = model.get('current_iteration')
 
-    logger.debug(
-        "update slider value 0: current_iteraction: {}".format(CURRENT_ITERATION)
-        )
-    CURRENT_ITERATION = SCHELLING_MODEL.current_iteration
-    logger.debug(
-        "update slider value 1: current_iteraction: {}".format(CURRENT_ITERATION)
-        )
-    return CURRENT_ITERATION
+    return current_iteration
 
 @app.callback(
     Output('step-slider', 'max'),
-    [Input('model-calculate', 'n_clicks')])
-def update_step_slider_max(n):
+    [
+        Input('model-calculate', 'n_clicks'),
+        Input('intermediate-model-state', 'children')
+        ])
+def update_step_slider_max(n, model):
     if n is None:
         n = 0
 
-    global SCHELLING_MODEL
-    global CURRENT_DATA
-    global CURRENT_ITERATION
+    model = json.loads(model)
+    current_iteration = model.get('current_iteration')
 
-    return CURRENT_ITERATION
+    return current_iteration
 
 @app.callback(
     Output('step-slider', 'marks'),
-    [Input('model-calculate', 'n_clicks')])
-def update_step_slider_marks(n):
+    [
+        Input('model-calculate', 'n_clicks'),
+        Input('intermediate-model-state', 'children')
+        ])
+def update_step_slider_marks(n, model):
     if n is None:
         n = 0
 
-    global SCHELLING_MODEL
-    global CURRENT_DATA
-    global CURRENT_ITERATION
+    model = json.loads(model)
+    current_iteration = model.get('current_iteration')
 
     return {
         i: '{}'.format(i) if i == 1 else str(i)
-                        for i in range(CURRENT_ITERATION+1)
+                        for i in range(current_iteration+1)
                         }
 
 @app.callback(
     Output('graph-changes', 'figure'),
-    [Input('model-calculate', 'n_clicks')])
-def update_graph_changes(n):
+    [
+        Input('model-calculate', 'n_clicks'),
+        Input('intermediate-model-state', 'children')
+        ])
+def update_graph_changes(n, model):
     if n is None:
         n = 0
 
-    global SCHELLING_MODEL
-    global CURRENT_DATA
-    global CURRENT_ITERATION
+    model = json.loads(model)
 
     return {
         "data": [
             go.Scatter(
-                x=[idx for idx, _ in enumerate(SCHELLING_MODEL.changes)],
-                y=SCHELLING_MODEL.changes,
+                x=[idx for idx, _ in enumerate(model.get('changes'))],
+                y=model.get('changes'),
                 mode='lines',
                 marker={'size': 10, "opacity": 0.6, "line": {'width': 0.5}},
             )
