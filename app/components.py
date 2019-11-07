@@ -3,7 +3,7 @@ import dash_html_components as html
 
 navbar = dbc.NavbarSimple(
     children=[
-        dbc.NavItem(dbc.NavLink("Schelling's Model", href="https://ytliu0.github.io/schelling/")),
+        dbc.NavItem(dbc.NavLink("About Schelling's Model", href="https://ytliu0.github.io/schelling/")),
         dbc.DropdownMenu(
             nav=True,
             in_navbar=True,
@@ -33,7 +33,7 @@ alert = dbc.Alert(
         ),
         html.Hr(),
         html.P(
-            "Type in your desired parameters and press the button to initialize and calculate. Each click of the button only calculate one step of the model. (I made it this way because I am running this on a potato server.) ",
+            "Type in your desired parameters and press the button to initialize and calculate. Each click of the button only calculates one step of the model. (I made it this way because I am running this on a potato server.) ",
             className="mb-0",
         ),
         html.P(

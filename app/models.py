@@ -21,26 +21,53 @@ class Schelling():
     :param empty_house_rate: percentage of houses that are empty
     :param :
     """
-    def __init__(
-        self, width, height,
-        empty_house_rate, neighbour_similarity,
-        n_iterations,
-        races = None
-    ):
-        if races is None:
-            races = 2
+    def __init__(self, model = None):
 
-        self.width = width
-        self.height = height
-        self.races = races
+        if model is None:
+            model = {"races": 2}
+
+        # {
+        #     "width": self.width,
+        #     "height": self.height,
+        #     "empty_house_rate": self.empty_house_rate,
+        #     "neighbour_similarity": self.neighbour_similarity,
+        #     "n_iterations": self.n_iterations,
+        #     "races": self.races,
+        #     "empty_houses": self.empty_houses,
+        #     "agents": self.agents,
+        #     "data": self.data,
+        #     "changes": self.changes
+        # }
+
+        if not model.get('agents'):
+            agents = {}
+        else:
+            agents = self._reload_agents(model.get('agents'))
+            print("Using agents: ", agents)
+
+        if model.get("empty_house_rate") is None:
+            empty_house_rate = 0.2
+        else:
+            empty_house_rate = model.get("empty_house_rate")
+
+        if not model.get("empty_houses"):
+            empty_houses = []
+        else:
+            empty_houses = model.get("empty_houses")
+            empty_houses = [tuple(i) for i in empty_houses]
+
+        self.width = model.get("width") or 20
+        self.height = model.get("height") or 20
+        self.races = model.get("races") or 2
         self.empty_house_rate = empty_house_rate
-        self.neighbour_similarity = neighbour_similarity
-        self.n_iterations = n_iterations
-        self.empty_houses = []
+        self.neighbour_similarity = model.get("neighbour_similarity") or 0.6
+        self.n_iterations = model.get("n_iterations") or 100
+        self.empty_houses = empty_houses
         # agents are gonna live in the houses
-        self.agents = {}
-        self.data = {}
-        self.changes = []
+        self.agents = agents
+        self.data = model.get("data") or {}
+        self.changes = model.get("changes") or []
+        self.current_iteration = model.get('current_iteration') or 0
 
     @staticmethod
     def _distribute_houses(locations, empty_house_rate):
@@ -116,6 +143,36 @@ class Schelling():
         logger.debug("last line: {}".format(res[-1]))
 
         return res
+
+    @staticmethod
+    def _serialize_agents(agents):
+
+        return [{'key':k, 'value': v} for k, v in agents.items()]
+
+    @staticmethod
+    def _reload_agents(key_val):
+
+        tuple_keys_dict = {tuple(i.get("key")): i.get("value") for i in key_val}
+
+        return tuple_keys_dict
+
+    def model_state(self):
+        """save the current status of the model
+        """
+        # generate all possible combinations of the horizontal and vertical coordinates
+        return {
+            "width": self.width,
+            "height": self.height,
+            "races": self.races,
+            "empty_house_rate": self.empty_house_rate,
+            "neighbour_similarity": self.neighbour_similarity,
+            "n_iterations": self.n_iterations,
+            "empty_houses": self.empty_houses,
+            "agents": self._serialize_agents(self.agents),
+            "data": self.data,
+            "changes": self.changes,
+            "current_iteration": self.current_iteration
+        }
 
     def initialize(self):
         """allocate occupied and empty houses to to grid
