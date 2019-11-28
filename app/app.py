@@ -133,6 +133,12 @@ body = dbc.Container(
                                 'displayModeBar': False
                             }
                         ),
+                        dcc.Graph(
+                            id="graph-order-params",
+                            config={
+                                'displayModeBar': False
+                            }
+                        ),
                         html.P("Parameters"),
                         param_controls,
                         dbc.Button("Evolve One Step", id="model-calculate", color="primary"),
@@ -383,6 +389,37 @@ def update_graph_changes(n, model):
             title="Number of Changes at Each Iteraction",
             colorway=['#fdae61', '#abd9e9', '#2c7bb6'],
             yaxis={"title": "Number of Changes"},
+            xaxis={"title": "Iteractions"})
+        }
+
+
+
+@app.callback(
+    Output('graph-order-params', 'figure'),
+    [
+        Input('model-calculate', 'n_clicks'),
+        Input('intermediate-model-state', 'children')
+        ])
+def update_graph_order_parameters(n, model):
+    if n is None:
+        n = 0
+
+    model = json.loads(model)
+
+    return {
+        "data": [
+            go.Scatter(
+                x=[idx for idx, _ in enumerate(model.get('order_parameters'))],
+                y=model.get('order_parameters'),
+                mode='lines',
+                marker={'size': 10, "opacity": 0.6, "line": {'width': 0.5}},
+            )
+        ],
+        "layout": go.Layout(
+            height=300,
+            title="Order Parameter at Each Iteraction",
+            colorway=['#fdae61', '#abd9e9', '#2c7bb6'],
+            yaxis={"title": "Order Parameter"},
             xaxis={"title": "Iteractions"})
         }
 

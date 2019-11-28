@@ -67,6 +67,7 @@ class Schelling():
         self.agents = agents
         self.data = model.get("data") or {}
         self.changes = model.get("changes") or []
+        self.order_parameters = model.get("order_parameters") or []
         self.current_iteration = model.get('current_iteration') or 0
 
     @staticmethod
@@ -171,6 +172,7 @@ class Schelling():
             "agents": self._serialize_agents(self.agents),
             "data": self.data,
             "changes": self.changes,
+            "order_parameters": self.order_parameters,
             "current_iteration": self.current_iteration
         }
 
@@ -259,9 +261,9 @@ class Schelling():
                 count_different += 1
 
         if (count_similar+count_different) == 0:
-            return False
+            return False, 0.0
         else:
-            return float(count_similar)/(count_similar+count_different) < self.neighbour_similarity
+            return float(count_similar)/(count_similar+count_different) < self.neighbour_similarity, float(count_similar)/(count_similar+count_different)
 
     def evove_one(self):
 
@@ -269,7 +271,8 @@ class Schelling():
         self.prev_agents = copy.deepcopy(self.agents)
         n_changes = 0
         for agent in self.prev_agents:
-            if self._is_unsatisfied(agent[0], agent[1]):
+            agent_is_satisfied, _ = self._is_unsatisfied(agent[0], agent[1])
+            if agent_is_satisfied:
                 agent_race = self.agents[agent]
                 empty_house = random.choice(self.empty_houses)
                 self.agents[empty_house] = agent_race
@@ -282,6 +285,21 @@ class Schelling():
         self.data[self.current_iteration] = self._agents_dict_to_2d_array(
             self.agents, self.width, self.height
             )
+        self.order_parameters.append(
+            self._order_parameter()
+        )
+
+    def _order_parameter(self):
+        """
+        order_parameter calculates the
+        """
+
+        order_param = 0
+        for agent in self.agents:
+            agent_is_satisfied, agent_neighbour_similarity = self._is_unsatisfied(agent[0], agent[1])
+            order_param += agent_neighbour_similarity
+
+        return order_param/len(self.agents)
 
     def evolve(self):
         """
